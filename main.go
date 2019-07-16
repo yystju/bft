@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"time"
 )
 
 var (
@@ -18,17 +17,17 @@ func init() {
 	flag.StringVar(&addr, "a", "[::1]:2000", "address")
 	flag.StringVar(&file, "f", "", "file to upload, default is stdin")
 	flag.StringVar(&out, "o", "", "the output folder, default isstdout")
-	flag.Int64Var(&interval, "i", int64(time.Millisecond), "the interval")
+	flag.Int64Var(&interval, "i", int64(1), "the interval")
 	flag.Parse()
 }
 
 func main() {
-	// switch mode {
-	// case "client":
-	// 	client()
-	// 	break
-	// case "server":
-	// 	server()
-	// 	break
-	// }
+	switch mode {
+	case "client":
+		client()
+		break
+	case "server":
+		server()
+		break
+	}
 }

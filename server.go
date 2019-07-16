@@ -15,6 +15,11 @@ import (
 	"sync"
 )
 
+var (
+	pChan chan *rawPacket
+	cache sync.Map
+)
+
 // Server is a ...
 func server() {
 	pc, err := net.ListenPacket("udp", addr)
@@ -25,23 +30,32 @@ func server() {
 
 	defer pc.Close()
 
-	// cache := make(map[string][]*Packet)
-	cache := new(sync.Map)
+	pChan = make(chan *rawPacket, 1024)
 
-	buffer := make([]byte, 1024)
+	go consumer(pc)
 
 	for {
+		buffer := make([]byte, 1024)
+
 		n, addr, err := pc.ReadFrom(buffer)
 
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		r := bytes.NewReader(buffer[0:n])
+		pChan <- newRawPacket(addr, buffer, n)
+	}
+}
+
+func consumer(pc net.PacketConn) {
+	for {
+		raw := <-pChan
+
+		r := bytes.NewReader(raw.Buffer[0:raw.N])
 
 		p := new(Packet)
 
-		err = binary.Read(r, binary.BigEndian, p)
+		err := binary.Read(r, binary.BigEndian, p)
 
 		if err != nil {
 			log.Panic(err)
@@ -49,12 +63,12 @@ func server() {
 
 		// log.Printf("SERVER RECEIVED : %s (%d-%d:%d)", addr.String(), p.Sess, p.Seq, p.Len)
 
-		go process(pc, addr, p, cache)
+		go process(pc, raw.Addr, p, &cache)
 	}
 }
 
 func process(pc net.PacketConn, addr net.Addr, p *Packet, cache *sync.Map) {
-	key := fmt.Sprintf("%s_%d", addr, int(p.Sess))
+	key := fmt.Sprintf("%s_%d", addr.String(), int(p.Sess))
 
 	value, ok := cache.Load(key)
 
@@ -68,49 +82,12 @@ func process(pc net.PacketConn, addr net.Addr, p *Packet, cache *sync.Map) {
 
 			log.Printf("len(l) : %d", len(l))
 
-			var outs io.Writer
-			var f *os.File
-
-			if "" == out {
-				outs = bufio.NewWriter(os.Stdout)
-			} else {
-				fileName := fmt.Sprintf("%s.%d.udp", addr.String(), p.Sess)
-
-				fileName = strings.ReplaceAll(fileName, ":", ".")
-				fileName = strings.ReplaceAll(fileName, "[", "")
-				fileName = strings.ReplaceAll(fileName, "]", "")
-
-				fullPathName := path.Join(out, fileName)
-
-				log.Println(fullPathName)
-
-				f, err := os.OpenFile(fullPathName, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
-
-				if err != nil {
-					log.Panic(err)
-				}
-
-				outs = f
-			}
-
-			for _, p := range l {
-				n, err := outs.Write(p.Data[0:p.Len])
-
-				if n != int(p.Len) {
-					log.Printf("[WARNING] p.Len : %d, n : %d", p.Len, n)
-				}
-
-				if err != nil {
-					log.Panic(err)
-				}
-			}
-
-			if f != nil {
-				f.Close()
-			}
+			go writeToFile(addr, l, p.Sess)
 		}
 
 		ret, _ := NewPacket(p.Sess, p.Seq, []byte("ACCEPTED"))
+
+		ret.Stamp = p.Stamp
 
 		buff := new(bytes.Buffer)
 
@@ -134,6 +111,8 @@ func process(pc net.PacketConn, addr net.Addr, p *Packet, cache *sync.Map) {
 
 		ret, _ := NewPacket(p.Sess, p.Seq, []byte("ACCEPTED"))
 
+		ret.Stamp = p.Stamp
+
 		buff := new(bytes.Buffer)
 
 		err := binary.Write(buff, binary.BigEndian, ret)
@@ -143,5 +122,45 @@ func process(pc net.PacketConn, addr net.Addr, p *Packet, cache *sync.Map) {
 		}
 
 		pc.WriteTo(buff.Bytes(), addr)
+	}
+}
+
+func writeToFile(addr net.Addr, l []*Packet, sess int32) {
+	var outs io.Writer
+
+	if "" == out {
+		outs = bufio.NewWriter(os.Stdout)
+	} else {
+		fileName := fmt.Sprintf("%s.%d.udp", addr.String(), sess)
+
+		fileName = strings.ReplaceAll(fileName, ":", ".")
+		fileName = strings.ReplaceAll(fileName, "[", "")
+		fileName = strings.ReplaceAll(fileName, "]", "")
+
+		fullPathName := path.Join(out, fileName)
+
+		log.Printf("fullPathName : %s", fullPathName)
+
+		f, err := os.OpenFile(fullPathName, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+
+		if err != nil {
+			log.Panic(err)
+		}
+
+		defer f.Close()
+
+		outs = f
+	}
+
+	for _, p := range l {
+		n, err := outs.Write(p.Data[0:p.Len])
+
+		if n != int(p.Len) {
+			log.Printf("[WARNING] p.Len : %d, n : %d", p.Len, n)
+		}
+
+		if err != nil {
+			log.Panic(err)
+		}
 	}
 }

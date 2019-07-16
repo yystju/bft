@@ -52,7 +52,7 @@ func readData(sessionID int, conn net.Conn) {
 			log.Panic(err)
 		}
 
-		log.Printf("CLIENT RECEIVED (%d-%d) : %s", p.Sess, p.Seq, string(p.Data[0:p.Len]))
+		log.Printf("CLIENT RECEIVED (%d-%d) : %d", p.Sess, p.Seq, time.Now().Unix()-p.Stamp)
 	}
 }
 

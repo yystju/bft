@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"net"
 	"time"
 )
 
@@ -59,4 +60,20 @@ func NewEOF(seq, sess int32) (*Packet, error) {
 	p.Stamp = time.Now().Unix()
 
 	return p, nil
+}
+
+type rawPacket struct {
+	N      int
+	Buffer []byte
+	Addr   net.Addr
+}
+
+func newRawPacket(addr net.Addr, buffer []byte, n int) *rawPacket {
+	ret := new(rawPacket)
+
+	ret.Addr = addr
+	ret.N = n
+	ret.Buffer = buffer
+
+	return ret
 }
