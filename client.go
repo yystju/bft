@@ -35,7 +35,7 @@ func client() {
 
 func readData(sessionID int, conn net.Conn) {
 	for {
-		buffer := make([]byte, 1024)
+		buffer := make([]byte, BufferSize)
 
 		n, err := conn.Read(buffer)
 
@@ -52,7 +52,7 @@ func readData(sessionID int, conn net.Conn) {
 			log.Panic(err)
 		}
 
-		log.Printf("CLIENT RECEIVED (%d-%d) : %d", p.Sess, p.Seq, time.Now().Unix()-p.Stamp)
+		// log.Printf("CLIENT RECEIVED (%d-%d) : %d", p.Sess, p.Seq, time.Now().Unix()-p.Stamp)
 	}
 }
 

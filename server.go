@@ -30,12 +30,12 @@ func server() {
 
 	defer pc.Close()
 
-	pChan = make(chan *rawPacket, 1024)
+	pChan = make(chan *rawPacket, ChannelSize)
 
 	go consumer(pc)
 
 	for {
-		buffer := make([]byte, 1024)
+		buffer := make([]byte, BufferSize)
 
 		n, addr, err := pc.ReadFrom(buffer)
 

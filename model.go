@@ -8,7 +8,13 @@ import (
 
 const (
 	//BlockSize is the packet size. In UDP case, it's 540 as the internet MAC packet size should be 548 for applications.
-	BlockSize = 540 - 16
+	BlockSize = (1500 - 64 - 8 - 16)
+
+	//BufferSize is the default local buffer size.
+	BufferSize = (1024 * 8)
+
+	//ChannelSize is the go channel size.
+	ChannelSize = 1024
 )
 
 // Packet is the structure for udp packet.
